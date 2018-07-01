@@ -51,12 +51,12 @@ app.use(cookieParser("supersecret"));
 app.use(session({
     saveUninitialized: false,
     resave: false,
-    store: new MongoStore({
-        host: "127.0.0.1",
-        port: "27017",
-        db: "session",
-        url: "mongodb://localhost:27017/quotes"
-    }),
+    // store: new MongoStore({
+    //     host: "127.0.0.1",
+    //     port: "27017",
+    //     db: "session",
+    //     url: process.env.DB_URI 
+    // }),
     secret: "supersecret",
     name: "VikingAuthentication",
     cookie: {
