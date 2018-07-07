@@ -37,7 +37,7 @@ app.use(bodyParser.json());
 
 //CORS
 const corsOptions = {
-    origin: "http://localhost:8080",
+    origin: ["http://localhost:8080", "http://app.quotes.vikingtom.ninja/"],
     allowedHeaders: ["Origin, X-Requested-With, Content-Type, Accept"],
     credentials: true,
     optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
