@@ -200,7 +200,7 @@ A U T H E N T I C A T I O N
 app.post("/login",
     passport.authenticate("local"),
     function (req, res) {
-        res.redirect("/quotes");
+        res.redirect("/");
     }
 );
 
