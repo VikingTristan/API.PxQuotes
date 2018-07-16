@@ -15,7 +15,9 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo")(session);
 //Passport middleware
 const passport = require("passport");
-const LocalStrategy = require("passport-local").Strategy;
+// const LocalStrategy = require("passport-local").Strategy;
+
+const Auth0Strategy = require("passport-auth0");
 
 const app = express();
 
@@ -30,11 +32,24 @@ require("./config/db");
 
 //Get models
 const Quote = require("./models/quote");
-const User = require("./models/user");
+// const User = require("./models/user");
 
 app.use(morgan("combined"));
 app.use(bodyParser.json());
 
+// Configure Passport to use Auth0
+const strategy = new Auth0Strategy({
+        domain: process.env.AUTH0_DOMAIN,
+        clientID: process.env.AUTH0_CLIENT_ID,
+        clientSecret: process.env.AUTH0_CLIENT_SECRET,
+        callbackURL: process.env.AUTH0_CALLBACK_URL
+    },
+    (accessToken, refreshToken, extraParams, profile, done) => {
+        return done(null, profile);
+    }
+);
+
+passport.use(strategy);
 //CORS
 const corsOptions = {
     origin: ["http://localhost:8080", "http://app.quotes.vikingtom.ninja"],
@@ -44,7 +59,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-app.use(cookieParser("supersecret"));
+// app.use(cookieParser("supersecret"));
 
 //Set up Sessions
 //use sessions for tracking logins
@@ -69,35 +84,35 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 //Passport setup -- authentication 
-passport.use(new LocalStrategy({
-        usernameField: "username",
-        passwordField: "password"
-    },
-    function (username, password, done) {
-        if (username && password) {
-            User.authenticate(username, password, (error, user) => {
-                if (error || !user) {
-                    return done(null, false, {
-                        message: "Incorrect username or password."
-                    });
-                } else {
-                    return done(null, user);
-                }
-            });
-        } else {
-            return done(null, false, {
-                message: "All fields are required."
-            });
-        }
-    }
-));
+// passport.use(new LocalStrategy({
+//         usernameField: "username",
+//         passwordField: "password"
+//     },
+//     function (username, password, done) {
+//         if (username && password) {
+//             User.authenticate(username, password, (error, user) => {
+//                 if (error || !user) {
+//                     return done(null, false, {
+//                         message: "Incorrect username or password."
+//                     });
+//                 } else {
+//                     return done(null, user);
+//                 }
+//             });
+//         } else {
+//             return done(null, false, {
+//                 message: "All fields are required."
+//             });
+//         }
+//     }
+// ));
 
 /* Each subsequent request will not contain credentials,
 but rather the unique cookie that identifies the session. 
 In order to support login sessions,  Passport will serialize 
  and deserialize user instances to and from the session. */
 passport.serializeUser(function (user, done) {
-    done(null, user.id);
+    done(null, user);
 });
 
 passport.deserializeUser(function (id, done) {
@@ -105,6 +120,8 @@ passport.deserializeUser(function (id, done) {
         done(err, user);
     });
 });
+
+require("./routes/index");
 
 /****************
    Q U O T E S 
@@ -196,11 +213,68 @@ app.delete("/quotes/:id", requiresLogin, (req, res) => {
 /****************************
 A U T H E N T I C A T I O N 
 ****************************/
-//LOGIN
-app.post("/login",
-    passport.authenticate("local"),
+// LOGIN
+// app.post("/login",
+//     passport.authenticate("auth0", {
+//         clientID: process.env.AUTH0_CLIENT_ID,
+//         domain: process.env.AUTH0_DOMAIN,
+//         redirectUri: process.env.AUTH0_CALLBACK_URL,
+//         audience: "https://" + process.env.AUTH0_DOMAIN + "/userinfo",
+//         responseType: "code",
+//         scope: "openid"
+//     }),
+//     function (req, res) {
+//         res.redirect("/");
+//     }
+// );
+
+// app.get("/login",
+//     passport.authenticate("auth0", {
+//         clientID: process.env.AUTH0_CLIENT_ID,
+//         domain: process.env.AUTH0_DOMAIN,
+//         redirectUri: process.env.AUTH0_CALLBACK_URL,
+//         audience: "https://" + process.env.AUTH0_DOMAIN + "/userinfo",
+//         responseType: "code",
+//         scope: "openid"
+//     }),
+//     function (req, res) {
+//         res.redirect("/");
+//     }
+// );
+
+// app.post("/logout", (req,res)=>{
+//     req.logout();
+//     res.redirect("/");
+// });
+app.get(
+    "/login",
+    passport.authenticate("auth0", {
+        clientID: process.env.AUTH0_CLIENT_ID,
+        domain: process.env.AUTH0_DOMAIN,
+        redirectUri: process.env.AUTH0_CALLBACK_URL,
+        audience: "https://" + process.env.AUTH0_DOMAIN + "/userinfo",
+        responseType: "code",
+        scope: "openid"
+    }),
     function (req, res) {
         res.redirect("/");
+    }
+);
+
+// Perform session logout and redirect to homepage
+app.get("/logout", (req, res) => {
+    req.logout();
+    res.redirect("/");
+});
+
+// Perform the final stage of authentication and redirect to '/user'
+app.get(
+    "/callback",
+    passport.authenticate("auth0", {
+        failureRedirect: "/"
+    }),
+    function (req, res) {
+        res.redirect(req.session.returnTo || "/user");
     }
 );
 
@@ -208,8 +282,7 @@ app.post("/login",
 function requiresLogin(req, res, next) {
     if (req.isAuthenticated()) {
         return next();
-    }        
-    else {
+    } else {
         const err = new Error("You must be logged in to do this.");
         err.status = 401;
         return next(err);
