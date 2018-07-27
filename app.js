@@ -261,20 +261,33 @@ app.get(
     }
 );
 
-// Perform session logout and redirect to homepage
+app.get(
+    "/checklogin",
+    passport.authenticate("auth0", {
+    }),
+    function (req, res) {
+        console.log("I guess I am here with req: ", req);
+        // res.redirect("/");
+    }
+);
+
+// Perform session logout and send response
 app.get("/logout", (req, res) => {
     req.logout();
-    res.redirect("/");
+    res.send({
+        success: true,
+        message: "Successfully logged out"
+    });
 });
 
-// Perform the final stage of authentication and redirect to '/user'
+// Perform the final stage of authentication
 app.get(
     "/callback",
     passport.authenticate("auth0", {
         failureRedirect: "/"
     }),
     function (req, res) {
-        res.redirect(req.session.returnTo || "/user");
+        res.redirect(req.session.returnTo);
     }
 );
 
