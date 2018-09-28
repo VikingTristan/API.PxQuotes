@@ -16,6 +16,29 @@ const MongoStore = require("connect-mongo")(session);
 //Passport middleware
 const passport = require("passport");
 // const LocalStrategy = require("passport-local").Strategy;
+const jwt = require("express-jwt");
+const jwtAuthz = require("express-jwt-authz");
+const jwksRsa = require("jwks-rsa");
+
+// Authentication middleware. When used, the
+// Access Token must exist and be verified against
+// the Auth0 JSON Web Key Set
+const checkJwt = jwt({
+    // Dynamically provide a signing key
+    // based on the kid in the header and 
+    // the signing keys provided by the JWKS endpoint.
+    secret: jwksRsa.expressJwtSecret({
+        cache: true,
+        rateLimit: true,
+        jwksRequestsPerMinute: 5,
+        jwksUri: process.env.AUTH0_DOMAIN + "/.well-known/jwks.json"
+    }),
+
+    // Validate the audience and the issuer.
+    audience: process.env.AUDIENCE,
+    issuer: process.env.AUTH0_DOMAIN,
+    algorithms: ["RS256"]
+});
 
 const Auth0Strategy = require("passport-auth0");
 
@@ -123,6 +146,21 @@ passport.deserializeUser(function (id, done) {
 
 require("./routes/index");
 
+
+// This route doesn't need authentication
+app.get("/public", function (req, res) {
+    res.json({
+        message: "Hello from a public endpoint! You don't need to be authenticated to see this."
+    });
+});
+
+// This route need authentication
+app.get("/private", checkJwt, function (req, res) {
+    res.json({
+        message: "Hello from a private endpoint! You need to be authenticated to see this."
+    });
+});
+
 /****************
    Q U O T E S 
 ****************/
@@ -142,7 +180,7 @@ app.get("/", (req, res) => {
 });
 
 //FETCH SINGLE
-app.get("/quote/:id", requiresLogin, (req, res) => {
+app.get("/quote/:id", (req, res) => {
     Quote.findById(req.params.id, "text author", function (error, quote) {
         if (error) {
             console.log("Error: ", error);
@@ -179,7 +217,7 @@ app.post("/quotes", (req, res) => {
 });
 
 //UPDATE
-app.put("/quotes/:id", requiresLogin, (req, res) => {
+app.put("/quotes/:id", (req, res) => {
     Quote.findById(req.params.id, "text author", function (error, quote) {
         if (error)
             console.log("Error updating quote:", error);
@@ -198,7 +236,7 @@ app.put("/quotes/:id", requiresLogin, (req, res) => {
 });
 
 //DELETE
-app.delete("/quotes/:id", requiresLogin, (req, res) => {
+app.delete("/quotes/:id", (req, res) => {
     Quote.remove({
         _id: req.params.id
     }, function (err, quote) {
@@ -263,8 +301,7 @@ app.get(
 
 app.get(
     "/checklogin",
-    passport.authenticate("auth0", {
-    }),
+    passport.authenticate("auth0", {}),
     function (req, res) {
         console.log("I guess I am here with req: ", req);
         // res.redirect("/");
@@ -281,23 +318,23 @@ app.get("/logout", (req, res) => {
 });
 
 // Perform the final stage of authentication
-app.get(
-    "/callback",
-    passport.authenticate("auth0", {
-        failureRedirect: "/"
-    }),
-    function (req, res) {
-        res.redirect(req.session.returnTo);
-    }
-);
+// app.get(
+//     "/callback",
+//     passport.authenticate("auth0", {
+//         failureRedirect: "/"
+//     }),
+//     function (req, res) {
+//         res.redirect(req.session.returnTo);
+//     }
+// );
 
 //CUSTOM LOGIN CHECK MIDDLEWARE
-function requiresLogin(req, res, next) {
-    if (req.isAuthenticated()) {
-        return next();
-    } else {
-        const err = new Error("You must be logged in to do this.");
-        err.status = 401;
-        return next(err);
-    }
-}
+// function requiresLogin(req, res, next) {
+//     if (req.isAuthenticated()) {
+//         return next();
+//     } else {
+//         const err = new Error("You must be logged in to do this.");
+//         err.status = 401;
+//         return next(err);
+//     }
+// }
