@@ -181,6 +181,7 @@ app.get("/", (req, res) => {
 
 //FETCH SINGLE
 app.get("/quote/:id", (req, res) => {
+    console.log("Attempting to find a quote with the ID: "+ req.params.id);
     Quote.findById(req.params.id, "text author", function (error, quote) {
         if (error) {
             console.log("Error: ", error);
